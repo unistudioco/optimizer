@@ -1,14 +1,25 @@
-# Image Optimizer
+# Image & Video Optimizer
 
-A configurable image optimization script using Node.js with support for selective blur, custom quality settings, and folder/file exclusions.
+A configurable image and video optimization script using Node.js with support for selective blur, custom quality settings, and folder/file exclusions.
 
 ## Features
 
 - 🖼️ Image optimization (resize, compress)
-- 🌀 Optional blur effect with configurable strength
+- 🎬 Video optimization and resizing (FFmpeg-powered)
+- 🌀 Optional blur effect with configurable strength (images only)
 - 📁 Folder and file inclusion/exclusion
 - 🎛️ Configurable quality settings per format
 - 📋 Comprehensive configuration file support
+
+## Prerequisites
+
+**FFmpeg Required**: For video processing, you need FFmpeg installed on your system:
+
+- **macOS**: `brew install ffmpeg`
+- **Windows**: Download from [FFmpeg.org](https://ffmpeg.org/download.html)
+- **Linux**: `sudo apt install ffmpeg` (Ubuntu/Debian) or equivalent
+
+**Note**: You may see a deprecation warning for `fluent-ffmpeg` during installation. This package still works perfectly and is widely used, but is no longer actively maintained. The functionality remains stable.
 
 ## Installation
 
@@ -32,7 +43,6 @@ npm run optimize:blur
 ```bash
 node optimize.js
 node optimize.js --blur
-node optimize.js --with-blur
 ```
 
 ## Configuration
@@ -59,6 +69,7 @@ All settings are configured in `config.json`:
 ```json
 "extensions": {
   "processable": [".jpg", ".jpeg", ".png", ".gif", ".webp"],  // Image formats to optimize
+  "videoProcessable": [".mp4", ".webm", ".mov", ".avi", ".mkv"], // Video formats to process
   "copyOnly": [".svg"],                                       // Copy without processing
   "exclude": [".tmp"]                                         // Skip these extensions
 }
@@ -73,6 +84,26 @@ All settings are configured in `config.json`:
     "jpeg": 80,           // JPEG quality (0-100)
     "png": 9,             // PNG compression level (0-9)
     "webp": 80            // WebP quality (0-100)
+  }
+}
+```
+
+### Video Processing Settings
+```json
+"video": {
+  "enableProcessing": true,   // Set to false to copy videos without processing
+  "enableResize": true,       // Set to false to keep original video dimensions
+  "preserveFormat": true,     // Keep original format (recommended) or convert all to outputFormat
+  "maxWidth": 1920,           // Maximum video width
+  "maxHeight": 1080,          // Maximum video height
+  "quality": {
+    "crf": 28,                // Constant Rate Factor (lower = higher quality, 18-28 recommended)
+    "preset": "medium",       // Encoding speed: ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
+    "bitrate": "1000k"        // Target bitrate (optional, leave empty for CRF-based encoding)
+  },
+  "formats": {
+    "outputFormat": "mp4",    // Output format (only used when preserveFormat is false)
+    "codec": "libx264"        // Video codec (only used when preserveFormat is false)
   }
 }
 ```
@@ -102,7 +133,11 @@ All settings are configured in `config.json`:
    - Optionally resizes images if `enableResize` is true and width > `maxWidth`
    - Applies compression based on format-specific quality settings
    - Optionally applies blur (if `--blur` flag is used and both folder and file allow it)
-4. **Output**: Saves optimized images to `dist/assets/`
+4. **Video Processing**:
+   - Optionally processes videos with FFmpeg if `enableProcessing` is true
+   - Resizes videos if `enableResize` is true and dimensions exceed max values
+   - Applies compression using configurable CRF, preset, and bitrate settings
+5. **Output**: Saves optimized images and videos to `dist/assets/`
 
 ### Blur Logic Hierarchy
 
@@ -167,10 +202,53 @@ When `--blur` flag is used, blur is applied based on this hierarchy:
       "webp": 75
     }
   },
+  "video": {
+    "enableProcessing": true,
+    "enableResize": true,
+    "maxWidth": 1280,
+    "maxHeight": 720,
+    "quality": {
+      "crf": 24,
+      "preset": "fast"
+    }
+  },
   "blur": {
     "strength": 5,
     "folders": {
       "exclude": ["portfolio"]     // No blur on portfolio, but still optimize
+    }
+  }
+}
+```
+
+### High Quality Video Processing (Preserve Original Formats)
+```json
+{
+  "video": {
+    "enableProcessing": true,
+    "enableResize": false,        // Keep original video dimensions
+    "preserveFormat": true,       // Keep MP4 as MP4, WebM as WebM, etc.
+    "quality": {
+      "crf": 18,                  // High quality encoding
+      "preset": "slow",           // Better compression (slower encoding)
+      "bitrate": ""               // Use CRF instead of bitrate
+    }
+  }
+}
+```
+
+### Web-Optimized Videos
+```json
+{
+  "video": {
+    "enableProcessing": true,
+    "enableResize": true,
+    "maxWidth": 1920,
+    "maxHeight": 1080,
+    "quality": {
+      "crf": 28,                  // Good balance of quality/size
+      "preset": "medium",
+      "bitrate": "2000k"          // Target bitrate for consistent size
     }
   }
 }
@@ -208,8 +286,46 @@ When `--blur` flag is used, blur is applied based on this hierarchy:
 }
 ```
 
+## Video Processing Notes
+
+### CRF (Constant Rate Factor)
+- **Lower values** = Higher quality, larger files (18-23 for high quality)
+- **Higher values** = Lower quality, smaller files (28+ for web delivery)
+- **Recommended range**: 18-28
+
+### Encoding Presets
+- **ultrafast, superfast, veryfast**: Fastest encoding, larger files
+- **fast, medium**: Good balance of speed and compression
+- **slow, slower, veryslow**: Best compression, slower encoding
+
+### Supported Input Formats
+- MP4, WebM, MOV, AVI, MKV
+
+### Format-Specific Processing
+- **MP4 files**: Processed with H.264 codec (libx264)
+- **WebM files**: Processed with VP9 codec (libvpx-vp9) when preserveFormat is true
+- **Other formats**: Use configured codec or fallback to copying
+
+### Fallback Behavior
+If video processing fails, the original file is copied without modification to ensure no data loss.
+
+## Troubleshooting
+
+### WebM Processing Issues
+If WebM files fail to process (which was the issue you experienced):
+1. **Enable preserveFormat**: Set `"preserveFormat": true` in config (recommended)
+2. **Check FFmpeg**: Ensure FFmpeg has VP9 support: `ffmpeg -codecs | grep vp9`
+3. **Alternative**: Set `"enableProcessing": false` for video files to copy them without processing
+
+### Deprecated Package Warning
+The `fluent-ffmpeg` deprecation warning is cosmetic. The package:
+- ✅ Still works perfectly
+- ✅ Is widely used in production
+- ✅ Has stable functionality
+- ⚠️ Just isn't actively maintained for new features
+
 ## Output Directory
 
-Optimized images are saved to: `dist/assets/`
+Optimized images and videos are saved to: `dist/assets/`
 
 The script maintains the original folder structure in the output directory. 

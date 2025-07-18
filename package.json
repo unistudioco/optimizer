@@ -1,7 +1,7 @@
 {
 	"name": "optimize-images",
 	"version": "1.0.0",
-	"description": "Configurable image optimization script using NodeJs with support for selective blur, custom quality settings, and folder/file exclusions.",
+	"description": "Configurable image and video optimization script using NodeJs with support for selective blur, custom quality settings, and folder/file exclusions.",
 	"author": "Oussama",
 	"license": "ISC",
 	"main": "optimize.js",
@@ -19,6 +19,7 @@
 		"sharp": "^0.32.6"
 	},
 	"dependencies": {
-		"cpy": "^11.0.1"
+		"cpy": "^11.0.1",
+		"fluent-ffmpeg": "^2.1.2"
 	}
 }

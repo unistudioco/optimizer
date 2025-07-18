@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
+const ffmpeg = require('fluent-ffmpeg');
 const mkdirp = require('mkdirp');
 
 // Load configuration
@@ -92,11 +93,134 @@ function getFileType(filePath) {
     
     if (config.extensions.processable.includes(fileExt)) {
         return 'processable';
+    } else if (config.extensions.videoProcessable.includes(fileExt)) {
+        return 'video';
     } else if (config.extensions.copyOnly.includes(fileExt)) {
         return 'copyOnly';
     }
     
     return 'other';
+}
+
+// Function to process video files
+function processVideo(inputPath, outputPath) {
+    return new Promise((resolve, reject) => {
+        console.log(`🎬 Processing video: ${inputPath}`);
+        
+        if (!config.video.enableProcessing) {
+            // Just copy the video without processing
+            fs.copyFileSync(inputPath, outputPath);
+            console.log(`📹 Copied video without processing: ${outputPath}`);
+            resolve();
+            return;
+        }
+
+        // Get video info first
+        ffmpeg.ffprobe(inputPath, (err, metadata) => {
+            if (err) {
+                console.error(`Error getting video metadata: ${err.message}`);
+                // Fallback to copying
+                fs.copyFileSync(inputPath, outputPath);
+                resolve();
+                return;
+            }
+
+            const videoStream = metadata.streams.find(stream => stream.codec_type === 'video');
+            if (!videoStream) {
+                console.error(`No video stream found in: ${inputPath}`);
+                fs.copyFileSync(inputPath, outputPath);
+                resolve();
+                return;
+            }
+
+            const originalWidth = videoStream.width;
+            const originalHeight = videoStream.height;
+            const inputFormat = path.extname(inputPath).toLowerCase();
+            
+            // Determine output format and codec
+            let outputFormat, codec, outputFile;
+            if (config.video.preserveFormat) {
+                // Keep original format
+                outputFormat = inputFormat.substring(1); // Remove the dot
+                outputFile = outputPath;
+                
+                // Use appropriate codec for format
+                if (inputFormat === '.webm') {
+                    codec = 'libvpx-vp9';
+                } else if (inputFormat === '.mp4') {
+                    codec = 'libx264';
+                } else {
+                    codec = config.video.formats.codec;
+                }
+                
+                console.log(`📄 Preserving original format: ${outputFormat} with codec: ${codec}`);
+            } else {
+                // Convert to configured format
+                outputFormat = config.video.formats.outputFormat;
+                codec = config.video.formats.codec;
+                const outputDir = path.dirname(outputPath);
+                const outputName = path.basename(outputPath, path.extname(outputPath));
+                outputFile = path.join(outputDir, `${outputName}.${outputFormat}`);
+                
+                console.log(`🔄 Converting to ${outputFormat} with codec: ${codec}`);
+            }
+            
+            let command = ffmpeg(inputPath)
+                .output(outputFile)
+                .videoCodec(codec);
+
+            // Add format-specific options
+            if (codec === 'libvpx-vp9') {
+                command = command.outputOptions([
+                    `-crf ${config.video.quality.crf}`,
+                    '-b:v 0', // Use CRF mode for VP9
+                    '-row-mt 1' // Enable row-based multithreading for VP9
+                ]);
+            } else {
+                command = command.outputOptions([
+                    `-crf ${config.video.quality.crf}`,
+                    `-preset ${config.video.quality.preset}`
+                ]);
+            }
+
+            // Apply resize if enabled and video is larger than max dimensions
+            if (config.video.enableResize) {
+                const needsResize = originalWidth > config.video.maxWidth || originalHeight > config.video.maxHeight;
+                
+                if (needsResize) {
+                    command = command.size(`${config.video.maxWidth}x${config.video.maxHeight}`);
+                    console.log(`📐 Resizing video from ${originalWidth}x${originalHeight} to max ${config.video.maxWidth}x${config.video.maxHeight}: ${outputFile}`);
+                } else {
+                    console.log(`📹 Keeping original video size (${originalWidth}x${originalHeight}): ${outputFile}`);
+                }
+            } else {
+                console.log(`📹 Video processing without resize (${originalWidth}x${originalHeight}): ${outputFile}`);
+            }
+
+            // Set bitrate if specified and not using VP9 CRF mode
+            if (config.video.quality.bitrate && codec !== 'libvpx-vp9') {
+                command = command.videoBitrate(config.video.quality.bitrate);
+            }
+
+            command
+                .on('end', () => {
+                    console.log(`✅ Video processed successfully: ${outputFile}`);
+                    resolve();
+                })
+                .on('error', (err) => {
+                    console.error(`❌ Error processing video ${inputPath}: ${err.message}`);
+                    // Fallback to copying original
+                    try {
+                        fs.copyFileSync(inputPath, outputPath);
+                        console.log(`📹 Copied original video as fallback: ${outputPath}`);
+                    } catch (copyErr) {
+                        console.error(`Failed to copy video: ${copyErr.message}`);
+                    }
+                    resolve(); // Resolve anyway to continue processing other files
+                })
+                .run();
+        });
+    });
 }
 
 // Function to copy files
@@ -138,13 +262,13 @@ function copyFolderRecursiveSync(source, target) {
 }
 
 // Function to optimize and blur images
-function optimizeAndBlurImages(source, target, applyBlur = false, parentBlurAllowed = true) {
+async function optimizeAndBlurImages(source, target, applyBlur = false, parentBlurAllowed = true) {
     const files = fs.readdirSync(source);
 
-    files.forEach(file => {
+    for (const file of files) {
         // Ignore hidden files
         if (file.startsWith('.')) {
-            return;
+            continue;
         }
 
         const filePath = path.join(source, file);
@@ -163,7 +287,7 @@ function optimizeAndBlurImages(source, target, applyBlur = false, parentBlurAllo
                 // Copy excluded folder without any optimization
                 console.log(`📁 Copying excluded folder without optimization: ${path.basename(filePath)}`);
                 copyFolderContentsDirectly(filePath, outputFilePath);
-                return;
+                continue;
             }
             
             // Check if this folder should receive blur
@@ -174,12 +298,12 @@ function optimizeAndBlurImages(source, target, applyBlur = false, parentBlurAllo
                 console.log(`📁 Excluding folder from blur: ${path.basename(filePath)}`);
             }
             
-            optimizeAndBlurImages(filePath, outputFilePath, applyBlur, blurForThisFolder);
+            await optimizeAndBlurImages(filePath, outputFilePath, applyBlur, blurForThisFolder);
         } else {
             // Check if file should be processed
             if (!shouldProcessFile(filePath)) {
                 console.log(`📄 Skipping excluded file: ${path.basename(filePath)}`);
-                return;
+                continue;
             }
 
             const fileType = getFileType(filePath);
@@ -193,7 +317,7 @@ function optimizeAndBlurImages(source, target, applyBlur = false, parentBlurAllo
                     console.log(`📄 Excluding file from blur: ${path.basename(filePath)}`);
                 }
 
-                sharp(filePath)
+                await sharp(filePath)
                     .metadata()
                     .then(metadata => {
                         let sharpInstance = sharp(filePath);
@@ -220,6 +344,9 @@ function optimizeAndBlurImages(source, target, applyBlur = false, parentBlurAllo
                             .then(() => console.log(`Optimized successfully: ${outputFilePath}`));
                     })
                     .catch(err => console.error(`Error processing ${filePath}: ${err}`));
+            } else if (fileType === 'video') {
+                // Process video file
+                await processVideo(filePath, outputFilePath);
             } else if (fileType === 'copyOnly') {
                 fs.copyFileSync(filePath, outputFilePath);
                 console.log(`Copied without modification: ${outputFilePath}`);
@@ -228,7 +355,7 @@ function optimizeAndBlurImages(source, target, applyBlur = false, parentBlurAllo
                 console.log(`Copied as-is: ${outputFilePath}`);
             }
         }
-    });
+    }
 }
 
 // Function to copy folder contents directly without any processing
@@ -273,6 +400,19 @@ async function build() {
         console.log(`   JPEG Quality: ${config.image.quality.jpeg}`);
         console.log(`   PNG Compression: ${config.image.quality.png}`);
         console.log(`   WebP Quality: ${config.image.quality.webp}`);
+        console.log(`   Process Videos: ${config.video.enableProcessing ? 'Yes' : 'No (copy only)'}`);
+        if (config.video.enableProcessing) {
+            console.log(`   Preserve Format: ${config.video.preserveFormat ? 'Yes' : 'No (convert to ' + config.video.formats.outputFormat + ')'}`);
+            console.log(`   Video Resize: ${config.video.enableResize ? 'Yes' : 'No'}`);
+            if (config.video.enableResize) {
+                console.log(`   Max Video Size: ${config.video.maxWidth}x${config.video.maxHeight}`);
+            }
+            console.log(`   Video CRF: ${config.video.quality.crf}`);
+            console.log(`   Video Preset: ${config.video.quality.preset}`);
+            if (!config.video.preserveFormat) {
+                console.log(`   Video Codec: ${config.video.formats.codec}`);
+            }
+        }
         console.log(`   Blur Strength: ${config.blur.strength}`);
         
         if (shouldBlur) {
@@ -302,7 +442,7 @@ async function build() {
         console.log(''); // Empty line for readability
 
         // Optimize and blur images
-        optimizeAndBlurImages(path.join(sourceDir, 'assets'), path.join(targetDir, 'assets'), shouldBlur, true);
+        await optimizeAndBlurImages(path.join(sourceDir, 'assets'), path.join(targetDir, 'assets'), shouldBlur, true);
     } catch (error) {
         console.error(`Build error: ${error}`);
     }

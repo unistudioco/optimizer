@@ -1,6 +1,6 @@
 {
   "folders": {
-    "exclude": ["media", "common", "brands", "brands-icons", "companies", "tools", "review-logo", "apps"],
+    "exclude": ["common", "brands", "brands-icons", "companies", "tools", "review-logo", "apps"],
     "include": []
   },
   "files": {
@@ -9,6 +9,7 @@
   },
   "extensions": {
     "processable": [".jpg", ".jpeg", ".png", ".gif", ".webp"],
+    "videoProcessable": [".mp4", ".webm", ".mov", ".avi", ".mkv"],
     "copyOnly": [".svg"],
     "exclude": []
   },
@@ -16,9 +17,25 @@
     "enableResize": true,
     "maxWidth": 1200,
     "quality": {
-      "jpeg": 80,
-      "png": 9,
-      "webp": 80
+      "jpeg": 70,
+      "png": 8,
+      "webp": 70
+    }
+  },
+  "video": {
+    "enableProcessing": true,
+    "enableResize": true,
+    "preserveFormat": true,
+    "maxWidth": 1280,
+    "maxHeight": 720,
+    "quality": {
+      "crf": 28,
+      "preset": "medium",
+      "bitrate": "1000k"
+    },
+    "formats": {
+      "outputFormat": "mp4",
+      "codec": "libx264"
     }
   },
   "blur": {
