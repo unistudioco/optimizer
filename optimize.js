@@ -194,8 +194,12 @@ function optimizeAndBlurImages(source, target, applyBlur = false, parentBlurAllo
                     .then(metadata => {
                         let sharpInstance = sharp(filePath);
                         
-                        if (metadata.width >= config.image.maxWidth) {
+                        // Apply resize if enabled and image is larger than maxWidth
+                        if (config.image.enableResize && metadata.width >= config.image.maxWidth) {
                             sharpInstance = sharpInstance.resize({ width: config.image.maxWidth });
+                            console.log(`Resizing from ${metadata.width}px to ${config.image.maxWidth}px: ${outputFilePath}`);
+                        } else if (!config.image.enableResize) {
+                            console.log(`Keeping original size (${metadata.width}px): ${outputFilePath}`);
                         }
                         
                         // Apply blur if requested and allowed
@@ -234,7 +238,10 @@ async function build() {
         
         // Display configuration summary
         console.log('\n📋 Configuration Summary:');
-        console.log(`   Max Width: ${config.image.maxWidth}px`);
+        console.log(`   Resize Images: ${config.image.enableResize ? 'Yes' : 'No (keep original size)'}`);
+        if (config.image.enableResize) {
+            console.log(`   Max Width: ${config.image.maxWidth}px`);
+        }
         console.log(`   JPEG Quality: ${config.image.quality.jpeg}`);
         console.log(`   PNG Compression: ${config.image.quality.png}`);
         console.log(`   WebP Quality: ${config.image.quality.webp}`);

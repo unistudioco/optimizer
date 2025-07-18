@@ -67,7 +67,8 @@ All settings are configured in `config.json`:
 ### Image Quality Settings
 ```json
 "image": {
-  "maxWidth": 700,        // Resize images wider than this
+  "enableResize": false,  // Set to true to resize images based on maxWidth
+  "maxWidth": 700,        // Resize images wider than this to match the maxWidth (enableResize: true)
   "quality": {
     "jpeg": 80,           // JPEG quality (0-100)
     "png": 9,             // PNG compression level (0-9)
@@ -96,7 +97,7 @@ All settings are configured in `config.json`:
 1. **Folder Processing**: Checks folder inclusion/exclusion rules
 2. **File Processing**: Verifies file should be processed based on name and extension
 3. **Image Optimization**: 
-   - Resizes images if width > `maxWidth`
+   - Optionally resizes images if `enableResize` is true and width > `maxWidth`
    - Applies compression based on format-specific quality settings
    - Optionally applies blur (if `--blur` flag is used and both folder and file allow it)
 4. **Output**: Saves optimized images to `dist/assets/`
@@ -124,11 +125,26 @@ When `--blur` flag is used, blur is applied based on this hierarchy:
     "exclude": ["temp", "drafts"]
   },
   "image": {
+    "enableResize": true,
     "maxWidth": 800,
     "quality": {
       "jpeg": 85,
       "png": 8,
       "webp": 85
+    }
+  }
+}
+```
+
+### Keep Original Image Sizes
+```json
+{
+  "image": {
+    "enableResize": false,    // Disable resizing, keep original dimensions
+    "quality": {
+      "jpeg": 75,             // Still apply compression
+      "png": 7,
+      "webp": 75
     }
   }
 }
