@@ -1,0 +1,24 @@
+{
+	"name": "optimize-images",
+	"version": "1.0.0",
+	"description": "Configurable image optimization script using NodeJs with support for selective blur, custom quality settings, and folder/file exclusions.",
+	"author": "Oussama",
+	"license": "ISC",
+	"main": "optimize.js",
+	"scripts": {
+		"optimize": "node optimize.js",
+		"optimize:blur": "node optimize.js --blur"
+	},
+	"files": [
+		"optimize.js",
+		"config.json"
+	],
+	"devDependencies": {
+		"cpy-cli": "^5.0.0",
+		"mkdirp": "^3.0.1",
+		"sharp": "^0.32.6"
+	},
+	"dependencies": {
+		"cpy": "^11.0.1"
+	}
+}

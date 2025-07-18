@@ -1,0 +1,34 @@
+{
+  "folders": {
+    "exclude": [],
+    "include": []
+  },
+  "files": {
+    "exclude": [],
+    "include": []
+  },
+  "extensions": {
+    "processable": [".jpg", ".jpeg", ".png", ".gif", ".webp"],
+    "copyOnly": [".svg"],
+    "exclude": []
+  },
+  "image": {
+    "maxWidth": 700,
+    "quality": {
+      "jpeg": 80,
+      "png": 9,
+      "webp": 80
+    }
+  },
+  "blur": {
+    "strength": 5,
+    "folders": {
+      "exclude": ["demos", "landing", "media", "common", "brands", "brands-icons", "companies", "tools", "review-logo"],
+      "include": []
+    },
+    "files": {
+      "exclude": [],
+      "include": []
+    }
+  }
+} 
