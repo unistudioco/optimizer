@@ -42,8 +42,8 @@ All settings are configured in `config.json`:
 ### Folder Settings
 ```json
 "folders": {
-  "exclude": ["demos", "landing", "media"],  // Skip these folders entirely
-  "include": []                              // If specified, only process these folders
+  "exclude": ["demos", "landing", "media"],  // Copy these folders without optimization
+  "include": []                              // If specified, only process these folders for optimization
 }
 ```
 
@@ -68,7 +68,7 @@ All settings are configured in `config.json`:
 ```json
 "image": {
   "enableResize": false,  // Set to true to resize images based on maxWidth
-  "maxWidth": 700,        // Resize images wider than this to match the maxWidth (enableResize: true)
+  "maxWidth": 1200,        // Resize images wider than this to match the maxWidth (enableResize: true)
   "quality": {
     "jpeg": 80,           // JPEG quality (0-100)
     "png": 9,             // PNG compression level (0-9)
@@ -94,7 +94,9 @@ All settings are configured in `config.json`:
 
 ## How It Works
 
-1. **Folder Processing**: Checks folder inclusion/exclusion rules
+1. **Folder Processing**: 
+   - **Excluded folders**: Copied directly without any optimization, resizing, or blur
+   - **Included/allowed folders**: Processed for optimization
 2. **File Processing**: Verifies file should be processed based on name and extension
 3. **Image Optimization**: 
    - Optionally resizes images if `enableResize` is true and width > `maxWidth`
@@ -145,6 +147,30 @@ When `--blur` flag is used, blur is applied based on this hierarchy:
       "jpeg": 75,             // Still apply compression
       "png": 7,
       "webp": 75
+    }
+  }
+}
+```
+
+### Mixed Processing (Some folders optimized, others copied as-is)
+```json
+{
+  "folders": {
+    "exclude": ["logos", "icons", "original-assets"]  // Copy these without any changes
+  },
+  "image": {
+    "enableResize": true,
+    "maxWidth": 800,
+    "quality": {
+      "jpeg": 75,
+      "png": 8,
+      "webp": 75
+    }
+  },
+  "blur": {
+    "strength": 5,
+    "folders": {
+      "exclude": ["portfolio"]     // No blur on portfolio, but still optimize
     }
   }
 }

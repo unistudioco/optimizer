@@ -1,6 +1,6 @@
 {
   "folders": {
-    "exclude": ["demos", "landing", "media", "common", "brands", "brands-icons", "companies", "tools", "review-logo", "apps"],
+    "exclude": ["media", "common", "brands", "brands-icons", "companies", "tools", "review-logo", "apps"],
     "include": []
   },
   "files": {
@@ -13,12 +13,12 @@
     "exclude": []
   },
   "image": {
-    "enableResize": false,
-    "maxWidth": 700,
+    "enableResize": true,
+    "maxWidth": 1200,
     "quality": {
-      "jpeg": 70,
-      "png": 8,
-      "webp": 70
+      "jpeg": 80,
+      "png": 9,
+      "webp": 80
     }
   },
   "blur": {

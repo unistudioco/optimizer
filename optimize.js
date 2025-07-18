@@ -154,13 +154,17 @@ function optimizeAndBlurImages(source, target, applyBlur = false, parentBlurAllo
         console.log(`Output file path: ${outputFilePath}`);
 
         if (fs.lstatSync(filePath).isDirectory()) {
-            // Check if folder should be processed
-            if (!shouldProcessFolder(filePath)) {
-                console.log(`📁 Skipping excluded folder: ${path.basename(filePath)}`);
+            // Check if folder should be processed for optimization
+            const shouldProcess = shouldProcessFolder(filePath);
+            
+            mkdirp.sync(outputFilePath);
+            
+            if (!shouldProcess) {
+                // Copy excluded folder without any optimization
+                console.log(`📁 Copying excluded folder without optimization: ${path.basename(filePath)}`);
+                copyFolderContentsDirectly(filePath, outputFilePath);
                 return;
             }
-
-            mkdirp.sync(outputFilePath);
             
             // Check if this folder should receive blur
             const folderAllowsBlur = shouldBlurFolder(filePath);
@@ -227,6 +231,30 @@ function optimizeAndBlurImages(source, target, applyBlur = false, parentBlurAllo
     });
 }
 
+// Function to copy folder contents directly without any processing
+function copyFolderContentsDirectly(source, target) {
+    const files = fs.readdirSync(source);
+
+    files.forEach(file => {
+        // Ignore hidden files
+        if (file.startsWith('.')) {
+            return;
+        }
+
+        const filePath = path.join(source, file);
+        const outputFilePath = path.join(target, file);
+
+        if (fs.lstatSync(filePath).isDirectory()) {
+            mkdirp.sync(outputFilePath);
+            copyFolderContentsDirectly(filePath, outputFilePath);
+            console.log(`📁 Copied folder directly: ${path.basename(filePath)}`);
+        } else {
+            fs.copyFileSync(filePath, outputFilePath);
+            console.log(`📄 Copied file directly: ${path.basename(filePath)}`);
+        }
+    });
+}
+
 module.exports = optimizeAndBlurImages;
 
 // Main build function
@@ -268,7 +296,7 @@ async function build() {
         }
 
         if (config.folders.exclude.length > 0) {
-            console.log(`🚫 Excluded folders: ${config.folders.exclude.join(', ')}`);
+            console.log(`📋 Excluded folders (copied without optimization): ${config.folders.exclude.join(', ')}`);
         }
 
         console.log(''); // Empty line for readability
